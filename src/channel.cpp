@@ -123,7 +123,7 @@ public:
         return static_cast<uint32_t>(res);
     }
 
-    static uint32_t select(std::vector<std::reference_wrapper<channel>> channels,
+    static int32_t select(std::vector<std::reference_wrapper<channel>> channels,
             std::chrono::milliseconds timeout) {
         std::unique_lock<std::mutex> guard{static_mutex()};
         auto cv = std::make_shared<std::condition_variable>();
@@ -152,7 +152,7 @@ public:
         if (-1 != selected_id) {
             for (size_t i = 0; i < channels.size(); i++) {
                 if (channels.at(i).get().instance_id() == selected_id) {
-                    return static_cast<uint32_t>(i);
+                    return static_cast<int32_t>(i);
                 }
             }
             throw support::exception(TRACEMSG(
@@ -233,7 +233,7 @@ PIMPL_FORWARD_METHOD(channel, support::buffer, receive, (), (), support::excepti
 PIMPL_FORWARD_METHOD(channel, bool, offer, (sl::io::span<const char>), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, support::buffer, poll, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, uint32_t, queue_size, (), (), support::exception)
-PIMPL_FORWARD_METHOD_STATIC(channel, uint32_t, select, (std::vector<std::reference_wrapper<channel>>&)(std::chrono::milliseconds), (), support::exception)
+PIMPL_FORWARD_METHOD_STATIC(channel, int32_t, select, (std::vector<std::reference_wrapper<channel>>&)(std::chrono::milliseconds), (), support::exception)
 
 } // namespace
 }

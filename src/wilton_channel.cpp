@@ -142,7 +142,7 @@ char* wilton_Channel_select(wilton_Channel** channels, int channels_num, int tim
             vec.push_back(ref);
         }
         auto tm = std::chrono::milliseconds(static_cast<uint32_t>(timeout_millis));
-        uint32_t idx = wilton::channel::channel::select(vec, tm);
+        auto idx = wilton::channel::channel::select(vec, tm);
         *selected_idx_out = static_cast<int>(idx);
         return nullptr;
     } catch (const std::exception& e) {

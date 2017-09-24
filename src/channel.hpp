@@ -49,7 +49,7 @@ public:
 
     uint32_t queue_size();
 
-    static uint32_t select(std::vector<std::reference_wrapper<channel>>& channels,
+    static int32_t select(std::vector<std::reference_wrapper<channel>>& channels,
             std::chrono::milliseconds timeout);
 
     inline int64_t instance_id() {
