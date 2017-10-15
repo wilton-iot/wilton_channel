@@ -126,6 +126,28 @@ char* wilton_Channel_poll(wilton_Channel* channel, char** msg_out, int* msg_len_
     }
 }
 
+// non-blocking
+char* wilton_Channel_peek(wilton_Channel* channel, char** msg_out, int* msg_len_out,
+        int* success_out) /* noexcept */ {
+    if (nullptr == channel) return wilton::support::alloc_copy(TRACEMSG("Null 'channel' parameter specified"));
+    if (nullptr == msg_out) return wilton::support::alloc_copy(TRACEMSG("Null 'msg_out' parameter specified"));
+    if (nullptr == msg_len_out) return wilton::support::alloc_copy(TRACEMSG("Null 'msg_len_out' parameter specified"));
+    if (nullptr == success_out) return wilton::support::alloc_copy(TRACEMSG("Null 'success_out' parameter specified"));
+    try {
+        auto buf = channel->impl().peek();
+        if (buf.has_value()) {
+            *msg_out = buf.value().data();
+            *msg_len_out = buf.value().size();
+            *success_out = true;
+        } else {
+            *success_out = false;
+        }
+        return nullptr;
+    } catch (const std::exception& e) {
+        return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
+    }
+}
+
 char* wilton_Channel_select(wilton_Channel** channels, int channels_num, int timeout_millis,
         int* selected_idx_out) /* noexcept */ {
     if (nullptr == channels) return wilton::support::alloc_copy(TRACEMSG("Null 'channels' parameter specified"));

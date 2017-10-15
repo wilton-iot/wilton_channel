@@ -50,6 +50,13 @@ char* wilton_Channel_poll(
         int* value_len_out,
         int* success_out);
 
+// non-blocking
+char* wilton_Channel_peek(
+        wilton_Channel* channel,
+        char** value_out,
+        int* value_len_out,
+        int* success_out);
+
 // blocking with timeout and multiplexed
 char* wilton_Channel_select(
         wilton_Channel** channels,

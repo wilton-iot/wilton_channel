@@ -47,6 +47,8 @@ public:
     
     support::buffer poll();
 
+    support::buffer peek();
+
     uint32_t queue_size();
 
     static int32_t select(std::vector<std::reference_wrapper<channel>>& channels,

@@ -117,6 +117,18 @@ public:
         }
     }
 
+    support::buffer peek(channel&) {
+        std::lock_guard<std::mutex> guard{static_mutex()};
+        if (unblocked) {
+            return support::make_empty_buffer();
+        }
+        if (queue.size() > 0) {
+            return support::make_string_buffer(queue.front());
+        } else {
+            return support::make_empty_buffer();
+        }
+    }
+
     uint32_t queue_size(channel&) {
         std::lock_guard<std::mutex> guard{static_mutex()};
         auto res = 0 == max_size ? 0 : queue.size(); 
@@ -232,6 +244,7 @@ PIMPL_FORWARD_METHOD(channel, bool, send, (sl::io::span<const char>), (), suppor
 PIMPL_FORWARD_METHOD(channel, support::buffer, receive, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, bool, offer, (sl::io::span<const char>), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, support::buffer, poll, (), (), support::exception)
+PIMPL_FORWARD_METHOD(channel, support::buffer, peek, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, uint32_t, queue_size, (), (), support::exception)
 PIMPL_FORWARD_METHOD_STATIC(channel, int32_t, select, (std::vector<std::reference_wrapper<channel>>&)(std::chrono::milliseconds), (), support::exception)
 
