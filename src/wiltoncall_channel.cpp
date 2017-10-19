@@ -106,12 +106,15 @@ support::buffer send(sl::io::span<const char> data) {
     auto json = sl::json::load(data);
     int64_t handle = -1;
     auto rmsg = std::ref(sl::utils::empty_string());
+    int64_t timeout = -1;
     for (const sl::json::field& fi : json.as_object()) {
         auto& name = fi.name();
         if ("channelHandle" == name) {
             handle = fi.as_int64_or_throw(name);
         } else if ("message" == name) {
             rmsg = fi.as_string_nonempty_or_throw(name);
+        } else if ("timeoutMillis" == name) {
+            timeout = fi.as_int64_or_throw(name);
         } else {
             throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
         }
@@ -120,6 +123,8 @@ support::buffer send(sl::io::span<const char> data) {
             "Required parameter 'channelHandle' not specified"));
     if (rmsg.get().empty()) throw support::exception(TRACEMSG(
             "Required parameter 'message' not specified"));
+    if (-1 == timeout) throw support::exception(TRACEMSG(
+            "Required parameter 'timeoutMillis' not specified"));
     const std::string& msg = rmsg.get();
     // get handle
     wilton_Channel* chan = static_registry().peek(handle);
@@ -128,7 +133,7 @@ support::buffer send(sl::io::span<const char> data) {
     // call wilton
     int success = -1;
     auto err = wilton_Channel_send(chan, msg.c_str(), static_cast<int>(msg.length()),
-            std::addressof(success));
+            static_cast<int>(timeout), std::addressof(success));
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     return support::make_json_buffer({
         { "success", 1 == success }
@@ -139,16 +144,21 @@ support::buffer receive(sl::io::span<const char> data) {
     // json parse
     auto json = sl::json::load(data);
     int64_t handle = -1;
+    int64_t timeout = -1;
     for (const sl::json::field& fi : json.as_object()) {
         auto& name = fi.name();
         if ("channelHandle" == name) {
             handle = fi.as_int64_or_throw(name);
+        } else if ("timeoutMillis" == name) {
+            timeout = fi.as_int64_or_throw(name);
         } else {
             throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
         }
     }
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'channelHandle' not specified"));
+    if (-1 == timeout) throw support::exception(TRACEMSG(
+            "Required parameter 'timeoutMillis' not specified"));
     // get handle
     wilton_Channel* chan = static_registry().peek(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
@@ -157,7 +167,7 @@ support::buffer receive(sl::io::span<const char> data) {
     char* msg_out = nullptr;
     int msg_len_out = -1;
     int success = -1;
-    auto err = wilton_Channel_receive(chan, std::addressof(msg_out), 
+    auto err = wilton_Channel_receive(chan, timeout, std::addressof(msg_out), 
             std::addressof(msg_len_out), std::addressof(success));
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     if (1 == success) {

@@ -66,16 +66,16 @@ public:
         sync_cv.notify_all();
     }
 
-    bool send(channel& frontend, sl::io::span<const char> msg) {
+    bool send(channel& frontend, sl::io::span<const char> msg, std::chrono::milliseconds timeout) {
         std::unique_lock<std::mutex> guard{static_mutex()};
         if (unblocked) {
             return false;
         }
         int64_t cid = frontend.instance_id();
-        return max_size > 0 ? send_buffered(cid, guard, msg) : send_sync(cid, guard, msg);
+        return max_size > 0 ? send_buffered(cid, guard, msg, timeout) : send_sync(cid, guard, msg, timeout);
     }
 
-    support::buffer receive(channel&) {
+    support::buffer receive(channel&, std::chrono::milliseconds timeout) {
         std::unique_lock<std::mutex> guard{static_mutex()};
         if (unblocked) {
             return support::make_empty_buffer();
@@ -83,10 +83,15 @@ public:
         if (queue.size() > 0) {
             return pop_queue();
         } else {
-            empty_cv.wait(guard, [this] {
+            auto predicate = [this] {
                 return this->unblocked || queue.size() > 0;
-            });
-            if (unblocked) {
+            };
+            if(std::chrono::milliseconds(0) == timeout) {
+                empty_cv.wait(guard, predicate);
+            } else {
+                empty_cv.wait_for(guard,timeout, predicate);
+            }
+            if (unblocked || 0 == queue.size()) {
                 return support::make_empty_buffer();
             }
             return pop_queue();
@@ -181,37 +186,58 @@ public:
 
 private:
 
-    bool send_buffered(int64_t channel_id, std::unique_lock<std::mutex>& guard, sl::io::span<const char> msg) {
+    bool send_buffered(int64_t channel_id, std::unique_lock<std::mutex>& guard,
+            sl::io::span<const char> msg, std::chrono::milliseconds timeout) {
         if (queue.size() < max_size) {
             return push_queue(channel_id, msg);
         } else {
-            full_cv.wait(guard, [this] {
+            auto predicate = [this] {
                 return this->unblocked || queue.size() < max_size;
-            });
-            if (unblocked) {
+            };
+            if(std::chrono::milliseconds(0) == timeout) {
+                full_cv.wait(guard, predicate);
+            } else {
+                full_cv.wait_for(guard, timeout, predicate);
+            }
+            if (unblocked || queue.size() == max_size) {
                 return false;
             }
             return push_queue(channel_id, msg);
         }
     }
 
-    bool send_sync(int64_t channel_id, std::unique_lock<std::mutex>& guard, sl::io::span<const char> msg) {
+    bool send_sync(int64_t channel_id, std::unique_lock<std::mutex>& guard,
+            sl::io::span<const char> msg, std::chrono::milliseconds timeout) {
+        auto predicate = [this] {
+            return this->unblocked || 0 == queue.size();
+        };
+        auto awaited = std::chrono::milliseconds(0);
         if (0 == queue.size()) {
             push_queue(channel_id, msg);
         } else if (1 == queue.size()) {
-            full_cv.wait(guard, [this] {
-                return this->unblocked || 0 == queue.size();
-            });
-            if (unblocked) {
+            if(std::chrono::milliseconds(0) == timeout) {
+                full_cv.wait(guard, predicate);
+            } else {
+                auto start = current_time_millis();
+                full_cv.wait_for(guard, timeout, predicate);
+                awaited = current_time_millis() - start;
+            }
+            if (unblocked || 0 != queue.size()) {
                 return false;
             }
             push_queue(channel_id, msg);
         } else throw support::exception(TRACEMSG(
                 "Invalid state detected for sync channel, queue size: [" + sl::support::to_string(queue.size()) + "]"));
-        sync_cv.wait(guard, [this] {
-            return this->unblocked || 0 == queue.size();
-        });
-        return !unblocked;
+        // await received
+        if(std::chrono::milliseconds(0) == timeout) {
+            sync_cv.wait(guard, predicate);
+        } else {
+            auto timeout_left = timeout - awaited;
+            if (timeout_left > std::chrono::milliseconds(0)) {
+                sync_cv.wait_for(guard, timeout_left, predicate);
+            }
+        }
+        return !unblocked && 0 == queue.size();
     }
 
     bool push_queue(int64_t channel_id, sl::io::span<const char> msg) {
@@ -243,10 +269,16 @@ private:
                 "Invalid state detected for sync channel, queue size: [" + sl::support::to_string(queue.size()) + "]"));
         return res;
     }
+
+    static std::chrono::milliseconds current_time_millis() {
+        auto time = std::chrono::system_clock::now(); // get the current time
+        auto since_epoch = time.time_since_epoch(); // get the duration since epoch
+        return std::chrono::duration_cast<std::chrono::milliseconds>(since_epoch);
+    }
 };
 PIMPL_FORWARD_CONSTRUCTOR(channel, (uint32_t), (), support::exception)
-PIMPL_FORWARD_METHOD(channel, bool, send, (sl::io::span<const char>), (), support::exception)
-PIMPL_FORWARD_METHOD(channel, support::buffer, receive, (), (), support::exception)
+PIMPL_FORWARD_METHOD(channel, bool, send, (sl::io::span<const char>)(std::chrono::milliseconds), (), support::exception)
+PIMPL_FORWARD_METHOD(channel, support::buffer, receive, (std::chrono::milliseconds), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, bool, offer, (sl::io::span<const char>), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, support::buffer, poll, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, support::buffer, peek, (), (), support::exception)

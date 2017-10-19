@@ -50,14 +50,17 @@ char* wilton_Channel_create(
 
 // blocking
 char* wilton_Channel_send(wilton_Channel* channel, const char* msg, int msg_len,
-        int* success_out) /* noexcept */ {
+        int timeout_millis, int* success_out) /* noexcept */ {
     if (nullptr == channel) return wilton::support::alloc_copy(TRACEMSG("Null 'channel' parameter specified"));
     if (nullptr == msg) return wilton::support::alloc_copy(TRACEMSG("Null 'msg' parameter specified"));
     if (!sl::support::is_uint32_positive(msg_len)) return wilton::support::alloc_copy(TRACEMSG(
             "Invalid 'msg_len' parameter specified: [" + sl::support::to_string(msg_len) + "]"));
+    if (!sl::support::is_uint32(timeout_millis)) return wilton::support::alloc_copy(TRACEMSG(
+            "Invalid 'timeout_millis' parameter specified: [" + sl::support::to_string(timeout_millis) + "]"));
     if (nullptr == success_out) return wilton::support::alloc_copy(TRACEMSG("Null 'success_out' parameter specified"));
     try {
-        bool success = channel->impl().send({msg, msg_len});
+        auto tm = std::chrono::milliseconds(static_cast<uint32_t>(timeout_millis));
+        bool success = channel->impl().send({msg, msg_len},tm);
         *success_out = success ? 1 : 0;
         return nullptr;
     } catch (const std::exception& e) {
@@ -66,14 +69,17 @@ char* wilton_Channel_send(wilton_Channel* channel, const char* msg, int msg_len,
 }
 
 // blocking
-char* wilton_Channel_receive(wilton_Channel* channel, char** msg_out, int* msg_len_out,
-        int* success_out) /* noexcept */ {
+char* wilton_Channel_receive(wilton_Channel* channel, int timeout_millis,
+        char** msg_out, int* msg_len_out, int* success_out) /* noexcept */ {
     if (nullptr == channel) return wilton::support::alloc_copy(TRACEMSG("Null 'channel' parameter specified"));
+    if (!sl::support::is_uint32(timeout_millis)) return wilton::support::alloc_copy(TRACEMSG(
+            "Invalid 'timeout_millis' parameter specified: [" + sl::support::to_string(timeout_millis) + "]"));
     if (nullptr == msg_out) return wilton::support::alloc_copy(TRACEMSG("Null 'msg_out' parameter specified"));
     if (nullptr == msg_len_out) return wilton::support::alloc_copy(TRACEMSG("Null 'msg_len_out' parameter specified"));
     if (nullptr == success_out) return wilton::support::alloc_copy(TRACEMSG("Null 'success_out' parameter specified"));
     try {
-        auto buf = channel->impl().receive();
+        auto tm = std::chrono::milliseconds(static_cast<uint32_t>(timeout_millis));
+        auto buf = channel->impl().receive(tm);
         if (buf.has_value()) {
             *msg_out = buf.value().data();
             *msg_len_out = buf.value().size();

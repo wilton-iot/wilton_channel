@@ -27,11 +27,13 @@ char* wilton_Channel_send(
         wilton_Channel* channel,
         const char* msg,
         int msg_len,
+        int timeout_millis,
         int* success_out);
 
 // blocking
 char* wilton_Channel_receive(
         wilton_Channel* channel,
+        int timeout_millis,
         char** msg_out,
         int* msg_len_out,
         int* success_out);

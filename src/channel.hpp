@@ -39,9 +39,9 @@ public:
 
     channel(uint32_t size);
 
-    bool send(sl::io::span<const char> msg);
+    bool send(sl::io::span<const char> msg, std::chrono::milliseconds timeout);
 
-    support::buffer receive();
+    support::buffer receive(std::chrono::milliseconds timeout);
     
     bool offer(sl::io::span<const char> msg);
     
