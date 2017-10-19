@@ -167,7 +167,7 @@ support::buffer receive(sl::io::span<const char> data) {
     char* msg_out = nullptr;
     int msg_len_out = -1;
     int success = -1;
-    auto err = wilton_Channel_receive(chan, timeout, std::addressof(msg_out), 
+    auto err = wilton_Channel_receive(chan, static_cast<int>(timeout), std::addressof(msg_out), 
             std::addressof(msg_len_out), std::addressof(success));
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
     if (1 == success) {
