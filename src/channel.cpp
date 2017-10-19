@@ -146,8 +146,7 @@ public:
             static_selectors().emplace_back(cv, ch.get().instance_id(), selected);
         }
         int64_t selected_id = -1;
-        // wait for pushes
-        cv->wait_for(guard, timeout, [&cv, &selected_id] {
+        auto predicate = [&cv, &selected_id] {
             for (auto& en : static_selectors()) {
                 if (en.cv.get() == cv.get() && en.selected) {
                     selected_id = en.channel_id;
@@ -155,7 +154,13 @@ public:
                 }
             }
             return false;
-        });
+        };
+        // wait for pushes
+        if(std::chrono::milliseconds(0) == timeout) {
+            cv->wait(guard, predicate);
+        } else {
+            cv->wait_for(guard, timeout, predicate);
+        }
         // remove selectors
         static_selectors().remove_if([&cv] (selector& en) {
             return en.cv.get() == cv.get();
