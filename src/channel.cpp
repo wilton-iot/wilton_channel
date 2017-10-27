@@ -140,6 +140,10 @@ public:
         return static_cast<uint32_t>(res);
     }
 
+    uint32_t queue_max_size(channel&) {
+        return static_cast<uint32_t>(max_size);
+    }
+
     static int32_t select(std::vector<std::reference_wrapper<channel>> channels,
             std::chrono::milliseconds timeout) {
         std::unique_lock<std::mutex> guard{static_mutex()};
@@ -283,6 +287,7 @@ PIMPL_FORWARD_METHOD(channel, bool, offer, (sl::io::span<const char>), (), suppo
 PIMPL_FORWARD_METHOD(channel, support::buffer, poll, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, support::buffer, peek, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, uint32_t, queue_size, (), (), support::exception)
+PIMPL_FORWARD_METHOD(channel, uint32_t, queue_max_size, (), (), support::exception)
 PIMPL_FORWARD_METHOD_STATIC(channel, int32_t, select, (std::vector<std::reference_wrapper<channel>>&)(std::chrono::milliseconds), (), support::exception)
 
 } // namespace

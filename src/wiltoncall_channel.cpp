@@ -357,6 +357,33 @@ support::buffer close(sl::io::span<const char> data) {
     return support::make_empty_buffer();
 }
 
+support::buffer get_max_size(sl::io::span<const char> data) {
+    // json parse
+    auto json = sl::json::load(data);
+    int64_t handle = -1;
+    for (const sl::json::field& fi : json.as_object()) {
+        auto& name = fi.name();
+        if ("channelHandle" == name) {
+            handle = fi.as_int64_or_throw(name);
+        } else {
+            throw support::exception(TRACEMSG("Unknown data field: [" + name + "]"));
+        }
+    }
+    if (-1 == handle) throw support::exception(TRACEMSG(
+            "Required parameter 'channelHandle' not specified"));
+    // get handle
+    wilton_Channel* chan = static_registry().peek(handle);
+    if (nullptr == chan) throw support::exception(TRACEMSG(
+            "Invalid 'channelHandle' parameter specified"));
+    // call wilton
+    int size = -1;
+    char* err = wilton_Channel_max_size(chan, std::addressof(size));
+    if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
+    return support::make_json_buffer({
+        { "maxSize", size }
+    });
+}
+
 support::buffer dump_registry(sl::io::span<const char>) {
     auto map_copy = [] {
         std::lock_guard<std::mutex> guard{static_registry().mutex()};
@@ -391,6 +418,7 @@ extern "C" char* wilton_module_init() {
         wilton::support::register_wiltoncall("channel_peek", wilton::channel::peek);
         wilton::support::register_wiltoncall("channel_select", wilton::channel::select);
         wilton::support::register_wiltoncall("channel_close", wilton::channel::close);
+        wilton::support::register_wiltoncall("channel_get_max_size", wilton::channel::get_max_size);
         wilton::support::register_wiltoncall("channel_dump_registry", wilton::channel::dump_registry);
         return nullptr;
     } catch (const std::exception& e) {

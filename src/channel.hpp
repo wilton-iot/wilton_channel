@@ -51,6 +51,8 @@ public:
 
     uint32_t queue_size();
 
+    uint32_t queue_max_size();
+
     static int32_t select(std::vector<std::reference_wrapper<channel>>& channels,
             std::chrono::milliseconds timeout);
 

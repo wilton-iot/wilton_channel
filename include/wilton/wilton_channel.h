@@ -70,6 +70,10 @@ char* wilton_Channel_buffered_count(
         wilton_Channel* channel,
         int* count_out);
 
+char* wilton_Channel_max_size(
+        wilton_Channel* channel,
+        int* size_out);
+
 char* wilton_Channel_close(
         wilton_Channel* channel);
 

@@ -178,12 +178,24 @@ char* wilton_Channel_select(wilton_Channel** channels, int channels_num, int tim
     }
 }
 
-char* wilton_Channel_buffered_count(wilton_Channel* channel, int* count_out) {
+char* wilton_Channel_buffered_count(wilton_Channel* channel, int* count_out) /* noexcept */ {
     if (nullptr == channel) return wilton::support::alloc_copy(TRACEMSG("Null 'channel' parameter specified"));
     if (nullptr == count_out) return wilton::support::alloc_copy(TRACEMSG("Null 'count_out' parameter specified"));
     try {
         auto size = channel->impl().queue_size();
         *count_out = static_cast<int>(size);
+        return nullptr;
+    } catch (const std::exception& e) {
+        return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
+    }
+}
+
+char* wilton_Channel_max_size(wilton_Channel* channel, int* size_out) /* noexcept */ {
+    if (nullptr == channel) return wilton::support::alloc_copy(TRACEMSG("Null 'channel' parameter specified"));
+    if (nullptr == size_out) return wilton::support::alloc_copy(TRACEMSG("Null 'size_out' parameter specified"));
+    try {
+        auto size = channel->impl().queue_max_size();
+        *size_out = static_cast<int>(size);
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
