@@ -389,7 +389,7 @@ support::buffer dump_registry(sl::io::span<const char>) {
         std::lock_guard<std::mutex> guard{static_registry().mutex()};
         return static_lookup_map();
     } ();
-    auto vec = std::vector<sl::json::field>();
+    auto vec = std::vector<sl::json::value>();
     for (auto& pa : map_copy) {
         // get handle
         wilton_Channel* chan = static_registry().peek(pa.second);
@@ -399,7 +399,11 @@ support::buffer dump_registry(sl::io::span<const char>) {
         int count = -1;
         char* err = wilton_Channel_buffered_count(chan, std::addressof(count));
         if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
-        vec.emplace_back(pa.first, count);
+        vec.emplace_back(sl::json::value({
+            { "name", pa.first },
+            { "handle", pa.second },
+            { "bufferedMessagesCount", count }
+        }));
     }
     return support::make_json_buffer(std::move(vec));
 }
