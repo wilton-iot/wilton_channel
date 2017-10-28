@@ -431,11 +431,11 @@ support::buffer dump_registry(sl::io::span<const char>) {
         int count = -1;
         char* err = wilton_Channel_buffered_count(chan, std::addressof(count));
         if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
-        vec.emplace_back(sl::json::value({
-            { "name", pa.first },
-            { "handle", pa.second },
-            { "bufferedMessagesCount", count }
-        }));
+        auto fields = std::vector<sl::json::field>();
+        fields.emplace_back("name", pa.first);
+        fields.emplace_back("handle", pa.second);
+        fields.emplace_back("bufferedMessagesCount", count);
+        vec.emplace_back(std::move(fields));
     }
     return support::make_json_buffer(std::move(vec));
 }
