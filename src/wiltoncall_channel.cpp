@@ -5,6 +5,7 @@
  * Created on September 21, 2017, 10:31 PM
  */
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -24,16 +25,16 @@ namespace channel {
 
 namespace { //anonymous
 
-support::handle_registry<wilton_Channel>& static_registry() {
-    static support::handle_registry<wilton_Channel> registry {
+std::shared_ptr<support::handle_registry<wilton_Channel>> shared_registry() {
+    static auto registry = std::make_shared<support::handle_registry<wilton_Channel>>(
         [] (wilton_Channel* chan) STATICLIB_NOEXCEPT {
             wilton_Channel_close(chan);
-        }};
+        });
     return registry;
 }
 
-std::unordered_map<std::string, int64_t>& static_lookup_map() {
-    static std::unordered_map<std::string, int64_t> map;
+std::shared_ptr<std::unordered_map<std::string, int64_t>> shared_lookup_map() {
+    static auto map = std::make_shared<std::unordered_map<std::string, int64_t>>();
     return map;
 }
 
@@ -60,17 +61,19 @@ support::buffer create(sl::io::span<const char> data) {
     if (-1 == size) throw support::exception(TRACEMSG(
             "Required parameter 'size' not specified"));
     // take registry lock and proceed with checks, creation and registering
-    std::lock_guard<std::mutex> guard{static_registry().mutex()};
+    auto reg = shared_registry();
+    std::lock_guard<std::mutex> guard{reg->mutex()};
     // check duplicate
-    auto count = static_lookup_map().count(name);
+    auto lm = shared_lookup_map();
+    auto count = lm->count(name);
     if (count > 0) throw support::exception(TRACEMSG(
             "Channel with specified name already exists, name: [" + name + "]"));
     // call wilton
     wilton_Channel* chan = nullptr;
     char* err = wilton_Channel_create(std::addressof(chan), static_cast<int> (size));
     if (nullptr != err) support::throw_wilton_error(err, TRACEMSG(err));
-    int64_t handle = static_registry().put_nolock(chan);
-    static_lookup_map().emplace(name, handle);
+    int64_t handle = reg->put_nolock(chan);
+    lm->emplace(name, handle);
     return support::make_json_buffer({
         { "channelHandle", handle}
     });
@@ -92,9 +95,11 @@ support::buffer lookup(sl::io::span<const char> data) {
             "Required parameter 'name' not specified"));
     const std::string& name = rname.get();
     // check lookup registry
-    std::lock_guard<std::mutex> guard{static_registry().mutex()};
-    auto it = static_lookup_map().find(name);
-    if (it == static_lookup_map().end()) throw support::exception(TRACEMSG(
+    auto reg = shared_registry();
+    std::lock_guard<std::mutex> guard{reg->mutex()};
+    auto lm = shared_lookup_map();
+    auto it = lm->find(name);
+    if (it == lm->end()) throw support::exception(TRACEMSG(
             "Channel with specified name not found, name: [" + name +"]"));
     return support::make_json_buffer({
         { "channelHandle", it->second }
@@ -127,7 +132,8 @@ support::buffer send(sl::io::span<const char> data) {
             "Required parameter 'timeoutMillis' not specified"));
     const std::string& msg = rmsg.get();
     // get handle
-    wilton_Channel* chan = static_registry().peek(handle);
+    auto reg = shared_registry();
+    wilton_Channel* chan = reg->peek(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
             "Invalid 'channelHandle' parameter specified"));
     // call wilton
@@ -160,7 +166,8 @@ support::buffer receive(sl::io::span<const char> data) {
     if (-1 == timeout) throw support::exception(TRACEMSG(
             "Required parameter 'timeoutMillis' not specified"));
     // get handle
-    wilton_Channel* chan = static_registry().peek(handle);
+    auto reg = shared_registry();
+    wilton_Channel* chan = reg->peek(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
             "Invalid 'channelHandle' parameter specified"));
     // call wilton
@@ -198,7 +205,8 @@ support::buffer offer(sl::io::span<const char> data) {
             "Required parameter 'message' not specified"));
     const std::string& msg = rmsg.get();
     // get handle
-    wilton_Channel* chan = static_registry().peek(handle);
+    auto reg = shared_registry();
+    wilton_Channel* chan = reg->peek(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
             "Invalid 'channelHandle' parameter specified"));
     // call wilton
@@ -226,7 +234,8 @@ support::buffer poll(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'channelHandle' not specified"));
     // get handle
-    wilton_Channel* chan = static_registry().peek(handle);
+    auto reg = shared_registry();
+    wilton_Channel* chan = reg->peek(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
             "Invalid 'channelHandle' parameter specified"));
     // call wilton
@@ -258,7 +267,8 @@ support::buffer peek(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'channelHandle' not specified"));
     // get handle
-    wilton_Channel* chan = static_registry().peek(handle);
+    auto reg = shared_registry();
+    wilton_Channel* chan = reg->peek(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
             "Invalid 'channelHandle' parameter specified"));
     // call wilton
@@ -299,9 +309,10 @@ support::buffer select(sl::io::span<const char> data) {
     if (-1 == timeout) throw support::exception(TRACEMSG(
             "Required parameter 'timeoutMillis' not specified"));
     // get handles
+    auto reg = shared_registry();
     auto channels = std::vector<wilton_Channel*>();
     for (int64_t ha : handles) {
-        auto chan = static_registry().peek(ha);
+        auto chan = reg->peek(ha);
         if (nullptr == chan) throw support::exception(TRACEMSG(
                 "Invalid 'channelHandle' parameter specified: [" + sl::support::to_string(ha) + "]"));
         channels.push_back(chan);
@@ -331,19 +342,21 @@ support::buffer close(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'channelHandle' not specified"));
     // get handle
-    wilton_Channel* chan = static_registry().remove(handle);
+    auto reg = shared_registry();
+    wilton_Channel* chan = reg->remove(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
             "Invalid 'channelHandle' parameter specified"));
     // call wilton
     char* err = wilton_Channel_close(chan);
     if (nullptr != err) {
-        static_registry().put(chan);
+        reg->put(chan);
         support::throw_wilton_error(err, TRACEMSG(err));
     }
     // pop registry
-    std::lock_guard<std::mutex> guard{static_registry().mutex()};
+    std::lock_guard<std::mutex> guard{reg->mutex()};
+    auto lm = shared_lookup_map();
     auto rname = std::ref(sl::utils::empty_string());
-    for (auto& pa : static_lookup_map()) {
+    for (auto& pa : *lm) {
         if (handle == pa.second) {
             rname = pa.first;
             break;
@@ -351,7 +364,7 @@ support::buffer close(sl::io::span<const char> data) {
     }
     if (rname.get().empty()) throw support::exception(TRACEMSG(
             "Registry cleanup error, specified channel not found"));
-    auto removed = static_lookup_map().erase(rname.get());
+    auto removed = lm->erase(rname.get());
     if (1 != removed) throw support::exception(TRACEMSG(
             "Registry cleanup error, 'erase' failed, name: [" + rname.get() + "]"));
     return support::make_empty_buffer();
@@ -372,7 +385,8 @@ support::buffer get_max_size(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'channelHandle' not specified"));
     // get handle
-    wilton_Channel* chan = static_registry().peek(handle);
+    auto reg = shared_registry();
+    wilton_Channel* chan = reg->peek(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
             "Invalid 'channelHandle' parameter specified"));
     // call wilton
@@ -399,13 +413,14 @@ support::buffer get_name(sl::io::span<const char> data) {
     if (-1 == handle) throw support::exception(TRACEMSG(
             "Required parameter 'channelHandle' not specified"));
     // get handle
-    wilton_Channel* chan = static_registry().peek(handle);
+    auto reg = shared_registry();
+    wilton_Channel* chan = reg->peek(handle);
     if (nullptr == chan) throw support::exception(TRACEMSG(
             "Invalid 'channelHandle' parameter specified"));
     // get registry
-    auto map_copy = [] {
-        std::lock_guard<std::mutex> guard{static_registry().mutex()};
-        return static_lookup_map();
+    auto map_copy = [&reg] {
+        std::lock_guard<std::mutex> guard{reg->mutex()};
+        return *shared_lookup_map();
     } ();
     // find name
     for (auto& pa : map_copy) {
@@ -417,14 +432,15 @@ support::buffer get_name(sl::io::span<const char> data) {
 }
 
 support::buffer dump_registry(sl::io::span<const char>) {
-    auto map_copy = [] {
-        std::lock_guard<std::mutex> guard{static_registry().mutex()};
-        return static_lookup_map();
+    auto reg = shared_registry();
+    auto map_copy = [&reg] {
+        std::lock_guard<std::mutex> guard{reg->mutex()};
+        return *shared_lookup_map();
     } ();
     auto vec = std::vector<sl::json::value>();
     for (auto& pa : map_copy) {
         // get handle
-        wilton_Channel* chan = static_registry().peek(pa.second);
+        wilton_Channel* chan = reg->peek(pa.second);
         if (nullptr == chan) throw support::exception(TRACEMSG(
                 "Invalid 'channelHandle' parameter specified, handle: [" + sl::support::to_string(pa.second) + "]"));
         // call wilton

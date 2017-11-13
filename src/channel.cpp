@@ -32,14 +32,14 @@ public:
     selected(selected) { }
 };
 
-std::mutex& static_mutex() {
-    static std::mutex mutex;
+std::shared_ptr<std::mutex> shared_mutex() {
+    static auto mutex = std::make_shared<std::mutex>();
     return mutex;
 }
 
 // todo: think about proper indexing instead of o(n) access
-std::list<selector>& static_selectors() {
-    static std::list<selector> list;
+std::shared_ptr<std::list<selector>> shared_selectors() {
+    static auto list = std::make_shared<std::list<selector>>();
     return list;
 }
 
@@ -59,7 +59,8 @@ public:
     max_size(size) { }
 
     ~impl() STATICLIB_NOEXCEPT {
-        std::unique_lock<std::mutex> guard{static_mutex()};
+        auto mx = shared_mutex();
+        std::unique_lock<std::mutex> guard{*mx};
         this->unblocked = true;
         empty_cv.notify_all();
         full_cv.notify_all();
@@ -67,7 +68,8 @@ public:
     }
 
     bool send(channel& frontend, sl::io::span<const char> msg, std::chrono::milliseconds timeout) {
-        std::unique_lock<std::mutex> guard{static_mutex()};
+        auto mx = shared_mutex();
+        std::unique_lock<std::mutex> guard{*mx};
         if (unblocked) {
             return false;
         }
@@ -76,7 +78,8 @@ public:
     }
 
     support::buffer receive(channel&, std::chrono::milliseconds timeout) {
-        std::unique_lock<std::mutex> guard{static_mutex()};
+        auto mx = shared_mutex();
+        std::unique_lock<std::mutex> guard{*mx};
         if (unblocked) {
             return support::make_empty_buffer();
         }
@@ -99,7 +102,8 @@ public:
     }
     
     bool offer(channel& frontend, sl::io::span<const char> msg) {
-        std::lock_guard<std::mutex> guard{static_mutex()};
+        auto mx = shared_mutex();
+        std::lock_guard<std::mutex> guard{*mx};
         if (unblocked || 0 == max_size) {
             return false;
         }
@@ -111,7 +115,8 @@ public:
     }
     
     support::buffer poll(channel&) {
-        std::lock_guard<std::mutex> guard{static_mutex()};
+        auto mx = shared_mutex();
+        std::lock_guard<std::mutex> guard{*mx};
         if (unblocked || 0 == max_size) {
             return support::make_empty_buffer();
         }
@@ -123,7 +128,8 @@ public:
     }
 
     support::buffer peek(channel&) {
-        std::lock_guard<std::mutex> guard{static_mutex()};
+        auto mx = shared_mutex();
+        std::lock_guard<std::mutex> guard{*mx};
         if (unblocked) {
             return support::make_empty_buffer();
         }
@@ -135,7 +141,8 @@ public:
     }
 
     uint32_t queue_size(channel&) {
-        std::lock_guard<std::mutex> guard{static_mutex()};
+        auto mx = shared_mutex();
+        std::lock_guard<std::mutex> guard{*mx};
         auto res = 0 == max_size ? 0 : queue.size(); 
         return static_cast<uint32_t>(res);
     }
@@ -146,17 +153,19 @@ public:
 
     static int32_t select(std::vector<std::reference_wrapper<channel>> channels,
             std::chrono::milliseconds timeout) {
-        std::unique_lock<std::mutex> guard{static_mutex()};
+        auto mx = shared_mutex();
+        std::unique_lock<std::mutex> guard{*mx};
+        auto sels = shared_selectors();
         auto cv = std::make_shared<std::condition_variable>();
         // add selectors
         for (auto ch : channels) {
             auto ptr = reinterpret_cast<impl*>(ch.get().get_impl_ptr().get());
             bool selected = ptr->queue.size() > 0;
-            static_selectors().emplace_back(cv, ch.get().instance_id(), selected);
+            sels->emplace_back(cv, ch.get().instance_id(), selected);
         }
         int64_t selected_id = -1;
-        auto predicate = [&cv, &selected_id] {
-            for (auto& en : static_selectors()) {
+        auto predicate = [&sels, &cv, &selected_id] {
+            for (auto& en : *sels) {
                 if (en.cv.get() == cv.get() && en.selected) {
                     selected_id = en.channel_id;
                     return true;
@@ -171,7 +180,7 @@ public:
             cv->wait_for(guard, timeout, predicate);
         }
         // remove selectors
-        static_selectors().remove_if([&cv] (selector& en) {
+        sels->remove_if([&cv] (selector& en) {
             return en.cv.get() == cv.get();
         });
         // convert selected channel_id (if selected) to list index
@@ -248,7 +257,8 @@ private:
         queue.emplace_back(msg.data(), msg.size());
         if (1 == queue.size()) {
             empty_cv.notify_all();
-            for (auto& en : static_selectors()) {
+            auto sels = shared_selectors();
+            for (auto& en : *sels) {
                 if (en.channel_id == channel_id) {
                     en.selected = true;
                     en.cv->notify_all();
