@@ -46,6 +46,7 @@ std::shared_ptr<std::list<selector>> shared_selectors() {
 } // namespace
 
 class channel::impl : public staticlib::pimpl::object::impl {
+    std::shared_ptr<std::mutex> mutex;
     std::condition_variable empty_cv;
     std::condition_variable full_cv;
     std::condition_variable sync_cv;
@@ -56,11 +57,11 @@ class channel::impl : public staticlib::pimpl::object::impl {
 
 public:
     impl(uint32_t size) :
+    mutex(shared_mutex()),
     max_size(size) { }
 
     ~impl() STATICLIB_NOEXCEPT {
-        auto mx = shared_mutex();
-        std::unique_lock<std::mutex> guard{*mx};
+        std::unique_lock<std::mutex> guard{*mutex};
         this->unblocked = true;
         empty_cv.notify_all();
         full_cv.notify_all();
@@ -68,8 +69,7 @@ public:
     }
 
     bool send(channel& frontend, sl::io::span<const char> msg, std::chrono::milliseconds timeout) {
-        auto mx = shared_mutex();
-        std::unique_lock<std::mutex> guard{*mx};
+        std::unique_lock<std::mutex> guard{*mutex};
         if (unblocked) {
             return false;
         }
@@ -78,8 +78,7 @@ public:
     }
 
     support::buffer receive(channel&, std::chrono::milliseconds timeout) {
-        auto mx = shared_mutex();
-        std::unique_lock<std::mutex> guard{*mx};
+        std::unique_lock<std::mutex> guard{*mutex};
         if (unblocked) {
             return support::make_empty_buffer();
         }
@@ -102,8 +101,7 @@ public:
     }
     
     bool offer(channel& frontend, sl::io::span<const char> msg) {
-        auto mx = shared_mutex();
-        std::lock_guard<std::mutex> guard{*mx};
+        std::lock_guard<std::mutex> guard{*mutex};
         if (unblocked || 0 == max_size) {
             return false;
         }
@@ -115,8 +113,7 @@ public:
     }
     
     support::buffer poll(channel&) {
-        auto mx = shared_mutex();
-        std::lock_guard<std::mutex> guard{*mx};
+        std::lock_guard<std::mutex> guard{*mutex};
         if (unblocked || 0 == max_size) {
             return support::make_empty_buffer();
         }
@@ -128,8 +125,7 @@ public:
     }
 
     support::buffer peek(channel&) {
-        auto mx = shared_mutex();
-        std::lock_guard<std::mutex> guard{*mx};
+        std::lock_guard<std::mutex> guard{*mutex};
         if (unblocked) {
             return support::make_empty_buffer();
         }
@@ -141,8 +137,7 @@ public:
     }
 
     uint32_t queue_size(channel&) {
-        auto mx = shared_mutex();
-        std::lock_guard<std::mutex> guard{*mx};
+        std::lock_guard<std::mutex> guard{*mutex};
         auto res = 0 == max_size ? 0 : queue.size(); 
         return static_cast<uint32_t>(res);
     }
