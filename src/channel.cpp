@@ -30,6 +30,7 @@
 #include <mutex>
 
 #include "staticlib/pimpl/forward_macros.hpp"
+#include "staticlib/utils.hpp"
 
 namespace wilton {
 namespace channel {
@@ -242,9 +243,9 @@ private:
             if(std::chrono::milliseconds(0) == timeout) {
                 full_cv.wait(guard, predicate);
             } else {
-                auto start = current_time_millis();
+                auto start = std::chrono::milliseconds(sl::utils::current_time_millis_steady());
                 full_cv.wait_for(guard, timeout, predicate);
-                awaited = current_time_millis() - start;
+                awaited = std::chrono::milliseconds(sl::utils::current_time_millis_steady()) - start;
             }
             if (unblocked || 0 != queue.size()) {
                 return false;
@@ -293,12 +294,6 @@ private:
         } else throw support::exception(TRACEMSG(
                 "Invalid state detected for sync channel, queue size: [" + sl::support::to_string(queue.size()) + "]"));
         return res;
-    }
-
-    static std::chrono::milliseconds current_time_millis() {
-        auto time = std::chrono::system_clock::now(); // get the current time
-        auto since_epoch = time.time_since_epoch(); // get the duration since epoch
-        return std::chrono::duration_cast<std::chrono::milliseconds>(since_epoch);
     }
 };
 PIMPL_FORWARD_CONSTRUCTOR(channel, (uint32_t), (), support::exception)
