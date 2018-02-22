@@ -196,7 +196,7 @@ support::buffer receive(sl::io::span<const char> data) {
     if (1 == success) {
         return support::wrap_wilton_buffer(msg_out, msg_len_out);
     } else {
-        return support::make_empty_buffer();
+        return support::make_null_buffer();
     }
 }
 
@@ -264,7 +264,7 @@ support::buffer poll(sl::io::span<const char> data) {
     if (1 == success) {
         return support::wrap_wilton_buffer(msg_out, msg_len_out);
     } else {
-        return support::make_empty_buffer();
+        return support::make_null_buffer();
     }
 }
 
@@ -297,7 +297,7 @@ support::buffer peek(sl::io::span<const char> data) {
     if (1 == success) {
         return support::wrap_wilton_buffer(msg_out, msg_len_out);
     } else {
-        return support::make_empty_buffer();
+        return support::make_null_buffer();
     }
 }
 
@@ -383,7 +383,7 @@ support::buffer close(sl::io::span<const char> data) {
     auto removed = lm->erase(rname.get());
     if (1 != removed) throw support::exception(TRACEMSG(
             "Registry cleanup error, 'erase' failed, name: [" + rname.get() + "]"));
-    return support::make_empty_buffer();
+    return support::make_null_buffer();
 }
 
 support::buffer get_max_size(sl::io::span<const char> data) {

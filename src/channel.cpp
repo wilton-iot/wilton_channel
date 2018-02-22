@@ -97,7 +97,7 @@ public:
     support::buffer receive(channel&, std::chrono::milliseconds timeout) {
         std::unique_lock<std::mutex> guard{*mutex};
         if (unblocked) {
-            return support::make_empty_buffer();
+            return support::make_null_buffer();
         }
         if (queue.size() > 0) {
             return pop_queue();
@@ -111,7 +111,7 @@ public:
                 empty_cv.wait_for(guard,timeout, predicate);
             }
             if (unblocked || 0 == queue.size()) {
-                return support::make_empty_buffer();
+                return support::make_null_buffer();
             }
             return pop_queue();
         }
@@ -132,24 +132,24 @@ public:
     support::buffer poll(channel&) {
         std::lock_guard<std::mutex> guard{*mutex};
         if (unblocked || 0 == max_size) {
-            return support::make_empty_buffer();
+            return support::make_null_buffer();
         }
         if (queue.size() > 0) {
             return pop_queue();
         } else {
-            return support::make_empty_buffer();
+            return support::make_null_buffer();
         }
     }
 
     support::buffer peek(channel&) {
         std::lock_guard<std::mutex> guard{*mutex};
         if (unblocked) {
-            return support::make_empty_buffer();
+            return support::make_null_buffer();
         }
         if (queue.size() > 0) {
             return support::make_string_buffer(queue.front());
         } else {
-            return support::make_empty_buffer();
+            return support::make_null_buffer();
         }
     }
 

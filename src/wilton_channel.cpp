@@ -114,10 +114,10 @@ char* wilton_Channel_receive(wilton_Channel* channel, int timeout_millis,
         wilton::support::log_debug(LOGGER, "Receiving message, handle: [" + wilton::support::strhandle(channel) + "]," +
                 " timeout: [" + sl::support::to_string(timeout_millis) + "] ...");
         auto buf = channel->impl().receive(tm);
-        wilton::support::log_debug(LOGGER, "Receive complete, result: [" + sl::support::to_string_bool(buf.has_value()) + "]");
-        if (buf.has_value()) {
-            *msg_out = buf.value().data();
-            *msg_len_out = static_cast<int> (buf.value().size());
+        wilton::support::log_debug(LOGGER, "Receive complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
+        if (!buf.is_null()) {
+            *msg_out = buf.data();
+            *msg_len_out = buf.size_int();
             *success_out = true;
         } else {
             *success_out = false;
@@ -158,10 +158,10 @@ char* wilton_Channel_poll(wilton_Channel* channel, char** msg_out, int* msg_len_
     try {
         wilton::support::log_debug(LOGGER, "Polling for message, handle: [" + wilton::support::strhandle(channel) + "] ...");
         auto buf = channel->impl().poll();
-        wilton::support::log_debug(LOGGER, "Poll complete, result: [" + sl::support::to_string_bool(buf.has_value()) + "]");
-        if (buf.has_value()) {
-            *msg_out = buf.value().data();
-            *msg_len_out = static_cast<int> (buf.value().size());
+        wilton::support::log_debug(LOGGER, "Poll complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
+        if (!buf.is_null()) {
+            *msg_out = buf.data();
+            *msg_len_out = buf.size_int();
             *success_out = true;
         } else {
             *success_out = false;
@@ -182,10 +182,10 @@ char* wilton_Channel_peek(wilton_Channel* channel, char** msg_out, int* msg_len_
     try {
         wilton::support::log_debug(LOGGER, "Peeking for message, handle: [" + wilton::support::strhandle(channel) + "] ...");
         auto buf = channel->impl().peek();
-        wilton::support::log_debug(LOGGER, "Peek complete, result: [" + sl::support::to_string_bool(buf.has_value()) + "]");
-        if (buf.has_value()) {
-            *msg_out = buf.value().data();
-            *msg_len_out = static_cast<int> (buf.value().size());
+        wilton::support::log_debug(LOGGER, "Peek complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
+        if (!buf.is_null()) {
+            *msg_out = buf.data();
+            *msg_len_out = buf.size_int();
             *success_out = true;
         } else {
             *success_out = false;
