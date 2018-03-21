@@ -40,7 +40,7 @@
 
 namespace { // anonymous
 
-const std::string LOGGER = std::string("wilton.Channel");
+const std::string logger = std::string("wilton.Channel");
 
 } // namespace
 
@@ -66,10 +66,10 @@ char* wilton_Channel_create(
             "Invalid 'size' parameter specified: [" + sl::support::to_string(size) + "]"));
     try {
         uint32_t size_u32 = static_cast<uint32_t> (size);
-        wilton::support::log_debug(LOGGER, "Creating channel, size: [" + sl::support::to_string(size_u32) + "] ...");
+        wilton::support::log_debug(logger, "Creating channel, size: [" + sl::support::to_string(size_u32) + "] ...");
         auto chan = wilton::channel::channel(size_u32);
         wilton_Channel* chan_ptr = new wilton_Channel(std::move(chan));
-        wilton::support::log_debug(LOGGER, "Channel created successfully, handle: [" + wilton::support::strhandle(chan_ptr) + "]");
+        wilton::support::log_debug(logger, "Channel created successfully, handle: [" + wilton::support::strhandle(chan_ptr) + "]");
         *channel_out = chan_ptr;
         return nullptr;
     } catch (const std::exception& e) {
@@ -89,10 +89,10 @@ char* wilton_Channel_send(wilton_Channel* channel, const char* msg, int msg_len,
     if (nullptr == success_out) return wilton::support::alloc_copy(TRACEMSG("Null 'success_out' parameter specified"));
     try {
         auto tm = std::chrono::milliseconds(static_cast<uint32_t>(timeout_millis));
-        wilton::support::log_debug(LOGGER, "Sending message, handle: [" + wilton::support::strhandle(channel) + "]," +
+        wilton::support::log_debug(logger, "Sending message, handle: [" + wilton::support::strhandle(channel) + "]," +
                 " message length: [" + sl::support::to_string(msg_len) + "], timeout: [" + sl::support::to_string(timeout_millis) + "] ...");
         bool success = channel->impl().send({msg, msg_len}, tm);
-        wilton::support::log_debug(LOGGER, "Send complete, result: [" + sl::support::to_string_bool(success) + "]");
+        wilton::support::log_debug(logger, "Send complete, result: [" + sl::support::to_string_bool(success) + "]");
         *success_out = success ? 1 : 0;
         return nullptr;
     } catch (const std::exception& e) {
@@ -111,10 +111,10 @@ char* wilton_Channel_receive(wilton_Channel* channel, int timeout_millis,
     if (nullptr == success_out) return wilton::support::alloc_copy(TRACEMSG("Null 'success_out' parameter specified"));
     try {
         auto tm = std::chrono::milliseconds(static_cast<uint32_t>(timeout_millis));
-        wilton::support::log_debug(LOGGER, "Receiving message, handle: [" + wilton::support::strhandle(channel) + "]," +
+        wilton::support::log_debug(logger, "Receiving message, handle: [" + wilton::support::strhandle(channel) + "]," +
                 " timeout: [" + sl::support::to_string(timeout_millis) + "] ...");
         auto buf = channel->impl().receive(tm);
-        wilton::support::log_debug(LOGGER, "Receive complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
+        wilton::support::log_debug(logger, "Receive complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
         if (!buf.is_null()) {
             *msg_out = buf.data();
             *msg_len_out = buf.size_int();
@@ -137,10 +137,10 @@ char* wilton_Channel_offer(wilton_Channel* channel, const char* msg, int msg_len
             "Invalid 'msg_len' parameter specified: [" + sl::support::to_string(msg_len) + "]"));
     if (nullptr == success_out) return wilton::support::alloc_copy(TRACEMSG("Null 'success_out' parameter specified"));
     try {
-        wilton::support::log_debug(LOGGER, "Offering message, handle: [" + wilton::support::strhandle(channel) + "]," +
+        wilton::support::log_debug(logger, "Offering message, handle: [" + wilton::support::strhandle(channel) + "]," +
                 " message length: [" + sl::support::to_string(msg_len) + "] ...");
         bool success = channel->impl().offer({msg, msg_len});
-        wilton::support::log_debug(LOGGER, "Offer complete, result: [" + sl::support::to_string_bool(success) + "]");
+        wilton::support::log_debug(logger, "Offer complete, result: [" + sl::support::to_string_bool(success) + "]");
         *success_out = success ? 1 : 0;
         return nullptr;
     } catch (const std::exception& e) {
@@ -156,9 +156,9 @@ char* wilton_Channel_poll(wilton_Channel* channel, char** msg_out, int* msg_len_
     if (nullptr == msg_len_out) return wilton::support::alloc_copy(TRACEMSG("Null 'msg_len_out' parameter specified"));
     if (nullptr == success_out) return wilton::support::alloc_copy(TRACEMSG("Null 'success_out' parameter specified"));
     try {
-        wilton::support::log_debug(LOGGER, "Polling for message, handle: [" + wilton::support::strhandle(channel) + "] ...");
+        wilton::support::log_debug(logger, "Polling for message, handle: [" + wilton::support::strhandle(channel) + "] ...");
         auto buf = channel->impl().poll();
-        wilton::support::log_debug(LOGGER, "Poll complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
+        wilton::support::log_debug(logger, "Poll complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
         if (!buf.is_null()) {
             *msg_out = buf.data();
             *msg_len_out = buf.size_int();
@@ -180,9 +180,9 @@ char* wilton_Channel_peek(wilton_Channel* channel, char** msg_out, int* msg_len_
     if (nullptr == msg_len_out) return wilton::support::alloc_copy(TRACEMSG("Null 'msg_len_out' parameter specified"));
     if (nullptr == success_out) return wilton::support::alloc_copy(TRACEMSG("Null 'success_out' parameter specified"));
     try {
-        wilton::support::log_debug(LOGGER, "Peeking for message, handle: [" + wilton::support::strhandle(channel) + "] ...");
+        wilton::support::log_debug(logger, "Peeking for message, handle: [" + wilton::support::strhandle(channel) + "] ...");
         auto buf = channel->impl().peek();
-        wilton::support::log_debug(LOGGER, "Peek complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
+        wilton::support::log_debug(logger, "Peek complete, result: [" + sl::support::to_string_bool(!buf.is_null()) + "]");
         if (!buf.is_null()) {
             *msg_out = buf.data();
             *msg_len_out = buf.size_int();
@@ -214,10 +214,10 @@ char* wilton_Channel_select(wilton_Channel** channels, int channels_num, int tim
             vec.push_back(ref);
         }
         auto tm = std::chrono::milliseconds(static_cast<uint32_t>(timeout_millis));
-        wilton::support::log_debug(LOGGER, "Selecting on channels, handles: [" + sl::json::dumps(std::move(vec_trace)) + "]," +
+        wilton::support::log_debug(logger, "Selecting on channels, handles: [" + sl::json::dumps(std::move(vec_trace)) + "]," +
                 " timeout: [" + sl::support::to_string(timeout_millis) + "] ...");
         auto idx = wilton::channel::channel::select(vec, tm);
-        wilton::support::log_debug(LOGGER, "Select complete, index: [" + sl::support::to_string(idx) + "]");
+        wilton::support::log_debug(logger, "Select complete, index: [" + sl::support::to_string(idx) + "]");
         *selected_idx_out = static_cast<int>(idx);
         return nullptr;
     } catch (const std::exception& e) {
@@ -252,9 +252,9 @@ char* wilton_Channel_max_size(wilton_Channel* channel, int* size_out) /* noexcep
 char* wilton_Channel_close(wilton_Channel* channel) /* noexcept */ {
     if (nullptr == channel) return wilton::support::alloc_copy(TRACEMSG("Null 'channel' parameter specified"));
     try {
-        wilton::support::log_debug(LOGGER, "Closing channel, handle: [" + wilton::support::strhandle(channel) + "] ...");
+        wilton::support::log_debug(logger, "Closing channel, handle: [" + wilton::support::strhandle(channel) + "] ...");
         delete channel;
-        wilton::support::log_debug(LOGGER, "Channel closed successfully");
+        wilton::support::log_debug(logger, "Channel closed successfully");
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
