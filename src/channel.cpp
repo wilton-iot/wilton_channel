@@ -49,11 +49,13 @@ public:
     selected(selected) { }
 };
 
+// initialized from wilton_module_init
 std::shared_ptr<std::mutex> shared_mutex() {
     static auto mutex = std::make_shared<std::mutex>();
     return mutex;
 }
 
+// initialized from wilton_module_init
 // todo: think about proper indexing instead of o(n) access
 std::shared_ptr<std::list<selector>> shared_selectors() {
     static auto list = std::make_shared<std::list<selector>>();
@@ -209,6 +211,11 @@ public:
         }
     }
 
+    static void initialize() {
+        shared_mutex();
+        shared_selectors();
+    }
+
 private:
 
     bool send_buffered(int64_t channel_id, std::unique_lock<std::mutex>& guard,
@@ -305,6 +312,7 @@ PIMPL_FORWARD_METHOD(channel, support::buffer, peek, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, uint32_t, queue_size, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, uint32_t, queue_max_size, (), (), support::exception)
 PIMPL_FORWARD_METHOD_STATIC(channel, int32_t, select, (std::vector<std::reference_wrapper<channel>>&)(std::chrono::milliseconds), (), support::exception)
+PIMPL_FORWARD_METHOD_STATIC(channel, void, initialize, (), (), support::exception)
 
 } // namespace
 }

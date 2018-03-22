@@ -72,6 +72,8 @@ public:
     static int32_t select(std::vector<std::reference_wrapper<channel>>& channels,
             std::chrono::milliseconds timeout);
 
+    static void initialize();
+
     inline int64_t instance_id() {
         return reinterpret_cast<int64_t>(this->get_impl_ptr().get());
     }

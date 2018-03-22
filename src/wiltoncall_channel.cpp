@@ -36,11 +36,15 @@
 #include "wilton/support/handle_registry.hpp"
 #include "wilton/support/registrar.hpp"
 
+// for local statics init only
+#include "channel.hpp"
+
 namespace wilton {
 namespace channel {
 
 namespace { //anonymous
 
+// initialized from wilton_module_init
 std::shared_ptr<support::handle_registry<wilton_Channel>> shared_registry() {
     static auto registry = std::make_shared<support::handle_registry<wilton_Channel>>(
         [] (wilton_Channel* chan) STATICLIB_NOEXCEPT {
@@ -49,6 +53,7 @@ std::shared_ptr<support::handle_registry<wilton_Channel>> shared_registry() {
     return registry;
 }
 
+// initialized from wilton_module_init
 std::shared_ptr<std::unordered_map<std::string, int64_t>> shared_lookup_map() {
     static auto map = std::make_shared<std::unordered_map<std::string, int64_t>>();
     return map;
@@ -477,6 +482,9 @@ support::buffer dump_registry(sl::io::span<const char>) {
 
 extern "C" char* wilton_module_init() {
     try {
+        wilton::channel::shared_registry();
+        wilton::channel::shared_lookup_map();
+        wilton::channel::channel::initialize();
         wilton::support::register_wiltoncall("channel_create", wilton::channel::create);
         wilton::support::register_wiltoncall("channel_lookup", wilton::channel::lookup);
         wilton::support::register_wiltoncall("channel_send", wilton::channel::send);
