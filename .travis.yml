@@ -15,10 +15,11 @@
 language: cpp
 
 sudo: false
-
 os:
   - linux
   - osx
+
+osx_image: xcode9.2
 
 git:
   submodules: false
@@ -29,20 +30,6 @@ addons:
       - build-essential
       - pkg-config
       - zip
-      - zlib1g-dev
-      - libjansson-dev
-      - liblog4cplus-dev
-      - libssl-dev
-      - libcurl4-openssl-dev
-      - libpopt-dev
-      - libsqlite3-dev
-      - libpq-dev
-      - libpng12-dev
-      - libusb-1.0-0-dev
-      - libudev-dev
-      - libglib2.0-dev
-      - libjavascriptcoregtk-3.0-dev
-      - valgrind
 
 before_install:
   - export CC=
@@ -55,6 +42,8 @@ install:
   - bash ./resources/ci/travis-checkout.sh
 
 before_script:
+  - echo "Updating modules to master"
+  - bash ./resources/ci/master-modules.sh
   - echo "Replacing repo to test PR"
   - set -e
   - rm -r modules/wilton_channel
@@ -66,7 +55,3 @@ before_script:
 
 script:
   - bash ./resources/ci/travis.sh
-
-notifications:
-  email:
-    on_success: always
