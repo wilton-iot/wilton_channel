@@ -49,8 +49,10 @@ std::shared_ptr<std::mutex> registry_and_lookup_mutex() {
 
 // initialized from wilton_module_init
 std::shared_ptr<support::shared_handle_registry<wilton_Channel>> channel_registry() {
-    static auto registry = std::make_shared<
-            support::shared_handle_registry<wilton_Channel>>(wilton_Channel_destroy);
+    static auto registry = std::make_shared<support::shared_handle_registry<wilton_Channel>>(
+            [](wilton_Channel* chan) STATICLIB_NOEXCEPT {
+                wilton_Channel_destroy(chan);
+            });
     return registry;
 }
 
