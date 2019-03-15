@@ -65,6 +65,8 @@ public:
 
     support::buffer peek();
 
+    void close();
+
     uint32_t queue_size();
 
     uint32_t queue_max_size();

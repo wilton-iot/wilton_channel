@@ -33,8 +33,8 @@
 
 #include "staticlib/support.hpp"
 
-#include "wilton/support/handle_registry.hpp"
 #include "wilton/support/logging.hpp"
+#include "wilton/support/misc.hpp"
 
 #include "channel.hpp"
 
@@ -253,8 +253,31 @@ char* wilton_Channel_close(wilton_Channel* channel) /* noexcept */ {
     if (nullptr == channel) return wilton::support::alloc_copy(TRACEMSG("Null 'channel' parameter specified"));
     try {
         wilton::support::log_debug(logger, "Closing channel, handle: [" + wilton::support::strhandle(channel) + "] ...");
-        delete channel;
+        channel->impl().close();
         wilton::support::log_debug(logger, "Channel closed successfully");
+        return nullptr;
+    } catch (const std::exception& e) {
+        return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
+    }
+}
+
+char* wilton_Channel_destroy(wilton_Channel* channel) /* noexcept */ {
+    if (nullptr == channel) return wilton::support::alloc_copy(TRACEMSG("Null 'channel' parameter specified"));
+    try {
+        wilton::support::log_debug(logger, "Destroying channel, handle: [" + wilton::support::strhandle(channel) + "] ...");
+        delete channel;
+        wilton::support::log_debug(logger, "Channel destroyed successfully");
+        return nullptr;
+    } catch (const std::exception& e) {
+        return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));
+    }
+}
+
+char* wilton_Channel_initialize() /* noexcept */ {
+    try {
+        wilton::support::log_debug(logger, "Initializing channels module ...");
+        wilton::channel::channel::initialize();
+        wilton::support::log_debug(logger, "Channels module initialized successfully");
         return nullptr;
     } catch (const std::exception& e) {
         return wilton::support::alloc_copy(TRACEMSG(e.what() + "\nException raised"));

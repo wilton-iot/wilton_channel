@@ -93,6 +93,11 @@ char* wilton_Channel_max_size(
 char* wilton_Channel_close(
         wilton_Channel* channel);
 
+char* wilton_Channel_destroy(
+        wilton_Channel* channel);
+
+char* wilton_Channel_initialize();
+
 #ifdef __cplusplus
 }
 #endif

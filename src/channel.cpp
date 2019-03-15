@@ -72,7 +72,7 @@ class channel::impl : public staticlib::pimpl::object::impl {
     std::deque<std::string> queue;
 
     uint32_t max_size;
-    bool unblocked = false;
+    bool closed = false;
 
 public:
     impl(uint32_t size) :
@@ -80,16 +80,12 @@ public:
     max_size(size) { }
 
     ~impl() STATICLIB_NOEXCEPT {
-        std::unique_lock<std::mutex> guard{*mutex};
-        this->unblocked = true;
-        empty_cv.notify_all();
-        full_cv.notify_all();
-        sync_cv.notify_all();
+        close_channel();
     }
 
     bool send(channel& frontend, sl::io::span<const char> msg, std::chrono::milliseconds timeout) {
         std::unique_lock<std::mutex> guard{*mutex};
-        if (unblocked) {
+        if (closed) {
             return false;
         }
         int64_t cid = frontend.instance_id();
@@ -98,21 +94,21 @@ public:
 
     support::buffer receive(channel&, std::chrono::milliseconds timeout) {
         std::unique_lock<std::mutex> guard{*mutex};
-        if (unblocked) {
+        if (closed) {
             return support::make_null_buffer();
         }
         if (queue.size() > 0) {
             return pop_queue();
         } else {
             auto predicate = [this] {
-                return this->unblocked || queue.size() > 0;
+                return this->closed || queue.size() > 0;
             };
             if(std::chrono::milliseconds(0) == timeout) {
                 empty_cv.wait(guard, predicate);
             } else {
                 empty_cv.wait_for(guard,timeout, predicate);
             }
-            if (unblocked || 0 == queue.size()) {
+            if (closed || 0 == queue.size()) {
                 return support::make_null_buffer();
             }
             return pop_queue();
@@ -121,7 +117,7 @@ public:
     
     bool offer(channel& frontend, sl::io::span<const char> msg) {
         std::lock_guard<std::mutex> guard{*mutex};
-        if (unblocked || 0 == max_size) {
+        if (closed || 0 == max_size) {
             return false;
         }
         if (queue.size() < max_size) {
@@ -133,7 +129,7 @@ public:
     
     support::buffer poll(channel&) {
         std::lock_guard<std::mutex> guard{*mutex};
-        if (unblocked || 0 == max_size) {
+        if (closed || 0 == max_size) {
             return support::make_null_buffer();
         }
         if (queue.size() > 0) {
@@ -145,7 +141,7 @@ public:
 
     support::buffer peek(channel&) {
         std::lock_guard<std::mutex> guard{*mutex};
-        if (unblocked) {
+        if (closed) {
             return support::make_null_buffer();
         }
         if (queue.size() > 0) {
@@ -159,6 +155,10 @@ public:
         std::lock_guard<std::mutex> guard{*mutex};
         auto res = 0 == max_size ? 0 : queue.size(); 
         return static_cast<uint32_t>(res);
+    }
+
+    void close(channel&) {
+        close_channel();
     }
 
     uint32_t queue_max_size(channel&) {
@@ -224,14 +224,14 @@ private:
             return push_queue(channel_id, msg);
         } else {
             auto predicate = [this] {
-                return this->unblocked || queue.size() < max_size;
+                return this->closed || queue.size() < max_size;
             };
             if(std::chrono::milliseconds(0) == timeout) {
                 full_cv.wait(guard, predicate);
             } else {
                 full_cv.wait_for(guard, timeout, predicate);
             }
-            if (unblocked || queue.size() == max_size) {
+            if (closed || queue.size() == max_size) {
                 return false;
             }
             return push_queue(channel_id, msg);
@@ -241,7 +241,7 @@ private:
     bool send_sync(int64_t channel_id, std::unique_lock<std::mutex>& guard,
             sl::io::span<const char> msg, std::chrono::milliseconds timeout) {
         auto predicate = [this] {
-            return this->unblocked || 0 == queue.size();
+            return this->closed || 0 == queue.size();
         };
         auto awaited = std::chrono::milliseconds(0);
         if (0 == queue.size()) {
@@ -254,7 +254,7 @@ private:
                 full_cv.wait_for(guard, timeout, predicate);
                 awaited = std::chrono::milliseconds(sl::utils::current_time_millis_steady()) - start;
             }
-            if (unblocked || 0 != queue.size()) {
+            if (closed || 0 != queue.size()) {
                 return false;
             }
             push_queue(channel_id, msg);
@@ -269,7 +269,7 @@ private:
                 sync_cv.wait_for(guard, timeout_left, predicate);
             }
         }
-        return !unblocked && 0 == queue.size();
+        return !closed && 0 == queue.size();
     }
 
     bool push_queue(int64_t channel_id, sl::io::span<const char> msg) {
@@ -302,6 +302,16 @@ private:
                 "Invalid state detected for sync channel, queue size: [" + sl::support::to_string(queue.size()) + "]"));
         return res;
     }
+
+    void close_channel() {
+        std::lock_guard<std::mutex> guard{*mutex};
+        if (!closed) {
+            this->closed = true;
+            empty_cv.notify_all();
+            full_cv.notify_all();
+            sync_cv.notify_all();
+        }
+    }
 };
 PIMPL_FORWARD_CONSTRUCTOR(channel, (uint32_t), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, bool, send, (sl::io::span<const char>)(std::chrono::milliseconds), (), support::exception)
@@ -309,6 +319,7 @@ PIMPL_FORWARD_METHOD(channel, support::buffer, receive, (std::chrono::millisecon
 PIMPL_FORWARD_METHOD(channel, bool, offer, (sl::io::span<const char>), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, support::buffer, poll, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, support::buffer, peek, (), (), support::exception)
+PIMPL_FORWARD_METHOD(channel, void, close, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, uint32_t, queue_size, (), (), support::exception)
 PIMPL_FORWARD_METHOD(channel, uint32_t, queue_max_size, (), (), support::exception)
 PIMPL_FORWARD_METHOD_STATIC(channel, int32_t, select, (std::vector<std::reference_wrapper<channel>>&)(std::chrono::milliseconds), (), support::exception)

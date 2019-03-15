@@ -18,6 +18,12 @@ EXPORTS
     wilton_Channel_receive
     wilton_Channel_offer
     wilton_Channel_poll
-    
+    wilton_Channel_peek
+    wilton_Channel_select
+    wilton_Channel_buffered_count
+    wilton_Channel_max_size
+    wilton_Channel_close
+    wilton_Channel_destroy
+    wilton_Channel_initialize
+
     wilton_module_init
-    
