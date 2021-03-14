@@ -43,10 +43,10 @@ public:
     int64_t channel_id;
     bool selected;
 
-    selector(std::shared_ptr<std::condition_variable> cv, int64_t channel_id, bool selected) :
+    selector(std::shared_ptr<std::condition_variable> cv, int64_t channel_id) :
     cv(cv),
     channel_id(channel_id),
-    selected(selected) { }
+    selected(false) { }
 };
 
 // initialized from wilton_module_init
@@ -169,13 +169,19 @@ public:
             std::chrono::milliseconds timeout) {
         auto mx = shared_mutex();
         std::unique_lock<std::mutex> guard{*mx};
+        // check whether can return immediately
+        for (size_t i = 0; i < channels.size(); i++) {
+            auto ptr = reinterpret_cast<impl*>(channels.at(i).get().get_impl_ptr().get());
+            if (ptr->closed || ptr->queue.size() > 0) {
+                return static_cast<int32_t>(i);
+            }
+        }
+        // wait is required, prepare selectors
         auto sels = shared_selectors();
         auto cv = std::make_shared<std::condition_variable>();
         // add selectors
         for (auto ch : channels) {
-            auto ptr = reinterpret_cast<impl*>(ch.get().get_impl_ptr().get());
-            bool selected = ptr->queue.size() > 0;
-            sels->emplace_back(cv, ch.get().instance_id(), selected);
+            sels->emplace_back(cv, ch.get().instance_id());
         }
         int64_t selected_id = -1;
         auto predicate = [&sels, &cv, &selected_id] {
