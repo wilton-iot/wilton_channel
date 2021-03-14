@@ -80,7 +80,7 @@ public:
     max_size(size) { }
 
     ~impl() STATICLIB_NOEXCEPT {
-        close_channel();
+        close_channel(0);
     }
 
     bool send(channel& frontend, sl::io::span<const char> msg, std::chrono::milliseconds timeout) {
@@ -157,8 +157,8 @@ public:
         return static_cast<uint32_t>(res);
     }
 
-    void close(channel&) {
-        close_channel();
+    void close(channel& frontend) {
+        close_channel(frontend.instance_id());
     }
 
     uint32_t queue_max_size(channel&) {
@@ -303,13 +303,23 @@ private:
         return res;
     }
 
-    void close_channel() {
+    void close_channel(int64_t channel_id) {
         std::lock_guard<std::mutex> guard{*mutex};
         if (!closed) {
             this->closed = true;
             empty_cv.notify_all();
             full_cv.notify_all();
             sync_cv.notify_all();
+            if (channel_id > 0) {
+                auto sels = shared_selectors();
+                for (auto& en : *sels) {
+                    if (en.channel_id == channel_id) {
+                        en.selected = true;
+                        en.cv->notify_all();
+                        break;
+                    }
+                }
+            }
         }
     }
 };
